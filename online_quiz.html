@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>온라인 퀴즈</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* 기본 설정 */
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --success: #10b981;
+            --success-light: #34d399;
+            --error: #ef4444;
+            --error-light: #f87171;
+            --warning: #f59e0b;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', sans-serif;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
+            background: var(--bg-main);
+        }
+
+        /* Safe Area 대응 */
+        #app-container {
+            padding-left: max(1rem, env(safe-area-inset-left));
+            padding-right: max(1rem, env(safe-area-inset-right));
+            padding-top: max(1rem, env(safe-area-inset-top));
+            padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+        }
+
+        /* 입력 필드 - 현대적 디자인 */
+        input[type="text"],
+        input[type="number"] {
+            font-size: 16px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--bg-card);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+        }
+
+        /* 버튼 공통 스타일 */
+        button {
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: manipulation;
+            min-height: 48px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        /* 선지 버튼 - 세련된 디자인 */
+        .choice-btn {
+            min-height: 72px;
+            line-height: 1.6;
+            position: relative;
+            overflow: hidden;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+        }
+
+        .choice-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .choice-btn:active:not(:disabled)::before {
+            left: 100%;
+        }
+
+        .choice-btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .choice-btn b {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            border-radius: 50%;
+            margin-right: 12px;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+
+        .choice-btn.selected {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 8px 16px rgba(99, 102, 241, 0.3), 0 0 0 3px rgba(99, 102, 241, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .choice-btn.selected b {
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .choice-btn.correct {
+            background: linear-gradient(135deg, var(--success), var(--success-light));
+            color: white;
+            border-color: var(--success);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .choice-btn.correct b {
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+        }
+
+        .choice-btn.incorrect {
+            background: linear-gradient(135deg, var(--error), var(--error-light));
+            color: white;
+            border-color: var(--error);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .choice-btn.incorrect b {
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+        }
+
+        /* 문항 결과 아이템 */
+        .result-item {
+            min-height: 64px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-item::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .result-item:active::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        .result-item.correct {
+            color: var(--success);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.15));
+        }
+
+        .result-item.incorrect {
+            color: var(--error);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.15));
+        }
+
+        /* 문제 내용 영역 */
+        .prose-custom {
+            line-height: 1.8;
+            word-break: keep-all;
+            color: var(--text-primary);
+        }
+
+        .prose-custom p {
+            margin-bottom: 1em;
+        }
+
+        .prose-custom u {
+            text-decoration: underline;
+            text-underline-offset: 4px;
+            text-decoration-thickness: 2px;
+            text-decoration-color: var(--primary-light);
+        }
+
+        .prose-custom .context {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-left: 4px solid var(--primary);
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            margin-bottom: 1.75rem;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* 해설 영역 */
+        .explanation {
+            background: linear-gradient(135deg, #fefce8, #fef3c7);
+            border-left: 4px solid var(--warning);
+            padding: 1.5rem;
+            margin-top: 1.75rem;
+            border-radius: 12px;
+            line-height: 1.8;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .explanation-label {
+            font-weight: 700;
+            color: #d97706;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .explanation-label::before {
+            content: '💡';
+            font-size: 1.1rem;
+        }
+
+        /* 로더 애니메이션 */
+        .loader {
+            width: 56px;
+            height: 56px;
+            position: relative;
+        }
+
+        .loader::before,
+        .loader::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        .loader::before {
+            width: 56px;
+            height: 56px;
+            border: 4px solid var(--primary);
+            opacity: 0.6;
+        }
+
+        .loader::after {
+            width: 56px;
+            height: 56px;
+            border: 4px solid var(--primary-light);
+            animation-delay: 0.5s;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(0.8);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.3;
+            }
+        }
+
+        /* 모달 */
+        .modal-overlay {
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.25s ease;
+            background: rgba(15, 23, 42, 0.6);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-height: calc(90vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* 스크롤바 */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--primary-light), var(--primary));
+            border-radius: 4px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        /* 네비게이션 */
+        .nav-container {
+            background: linear-gradient(to top, 
+                var(--bg-main) 60%, 
+                rgba(248, 250, 252, 0.95) 85%,
+                rgba(248, 250, 252, 0) 100%
+            );
+            padding-top: 2rem;
+            padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+        }
+
+        /* 카드 */
+        .card {
+            background: var(--bg-card);
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(10px);
+        }
+
+        /* 헤더 */
+        .quiz-header {
+            position: sticky;
+            top: -1rem;
+            background: linear-gradient(to bottom,
+                var(--bg-main) 0%,
+                var(--bg-main) 80%,
+                rgba(248, 250, 252, 0.95) 95%,
+                rgba(248, 250, 252, 0) 100%
+            );
+            z-index: 10;
+            padding: 1rem 0 1.5rem 0;
+            margin: -1rem 0 1rem 0;
+        }
+
+        /* 버튼 스타일 */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn-primary:active:not(:disabled)::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(1px);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-secondary:active:not(:disabled) {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        }
+
+        /* 점수 표시 */
+        .score-display {
+            animation: scorePopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes scorePopIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) rotate(-5deg);
+            }
+            60% {
+                transform: scale(1.05) rotate(2deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        /* 점수에 따른 색상 */
+        .score-high {
+            background: linear-gradient(135deg, #10b981, #059669);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-mid {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-low {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* 배지 스타일 */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* 포커스 */
+        button:focus-visible,
+        input:focus-visible {
+            outline: 3px solid var(--primary-light);
+            outline-offset: 2px;
+        }
+
+        /* 컨텐츠 영역 */
+        .question-content-area {
+            min-height: 120px;
+        }
+
+        #quiz-screen,
+        #results-screen {
+            padding-bottom: calc(90px + env(safe-area-inset-bottom));
+        }
+
+        /* 제목 강조 */
+        .page-title {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        /* 번호 뱃지 */
+        .number-badge {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+    <div id="app-container" class="max-w-2xl mx-auto min-h-screen">
+
+        <div id="loading-screen" class="flex flex-col items-center justify-center" style="min-height: 80vh;">
+            <div class="loader"></div>
+            <p id="loading-message" class="mt-6 text-base text-gray-600 font-medium">문제를 불러오는 중입니다...</p>
+        </div>
+
+        <div id="login-screen" class="hidden py-12">
+            <div class="text-center mb-8">
+                <h1 class="page-title text-4xl font-extrabold mb-3">외솔학원</h1>
+                <p class="text-gray-500 text-sm">온라인 클리닉 테스트</p>
+            </div>
+            
+            <div class="bg-white p-7 rounded-2xl shadow-lg card space-y-5">
+                <div>
+                    <label for="login-id-input" class="block text-sm font-bold text-gray-800 mb-2">아이디</label>
+                    <input 
+                        type="text" 
+                        id="login-id-input" 
+                        class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-medium"
+                    >
+                </div>
+                <div>
+                    <label for="login-pw-input" class="block text-sm font-bold text-gray-800 mb-2">비밀번호</label>
+                    <input 
+                        type="password" 
+                        id="login-pw-input" 
+                        class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-medium"
+                    >
+                </div>
+
+                <p id="login-error-message" class="text-red-500 text-sm font-medium hidden text-center"></p>
+
+                <button 
+                    id="login-btn" 
+                    class="w-full py-4 px-6 text-base text-white font-bold rounded-xl btn-primary transition mt-2"
+                >
+                    로그인
+                </button>
+                <button 
+                    id="signup-btn" 
+                    class="w-full py-3 px-6 text-sm text-gray-700 font-bold rounded-xl btn-secondary transition"
+                >
+                    회원가입
+                </button>
+            </div>
+        </div>
+
+        <div id="signup-screen" class="hidden py-12">
+            <div class="text-center mb-8">
+                <h1 class="page-title text-4xl font-extrabold mb-3">회원가입</h1>
+                <p class="text-gray-500 text-sm">정보를 입력해주세요.</p>
+            </div>
+            
+            <div class="bg-white p-7 rounded-2xl shadow-lg card space-y-5">
+                <div>
+                    <label for="signup-id-input" class="block text-sm font-bold text-gray-800 mb-2">아이디</label>
+                    <input type="text" id="signup-id-input" class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-medium">
+                </div>
+                <div>
+                    <label for="signup-pw-input" class="block text-sm font-bold text-gray-800 mb-2">비밀번호</label>
+                    <input type="password" id="signup-pw-input" class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-medium">
+                </div>
+                <div>
+                    <label for="signup-pw-confirm-input" class="block text-sm font-bold text-gray-800 mb-2">비밀번호 확인</label>
+                    <input type="password" id="signup-pw-confirm-input" class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-medium">
+                </div>
+                 <div>
+                    <label for="signup-name-input" class="block text-sm font-bold text-gray-800 mb-2">이름</label>
+                    <input type="text" id="signup-name-input" class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-medium">
+                </div>
+
+                <p id="signup-error-message" class="text-red-500 text-sm font-medium hidden text-center"></p>
+
+                <button id="signup-submit-btn" class="w-full py-4 px-6 text-base text-white font-bold rounded-xl btn-primary transition mt-2">
+                    회원가입
+                </button>
+                <button id="signup-back-btn" class="w-full py-3 px-6 text-sm text-gray-700 font-bold rounded-xl btn-secondary transition">
+                    로그인 화면으로 돌아가기
+                </button>
+            </div>
+        </div>
+
+        <div id="quiz-lobby-screen" class="hidden py-6">
+            <div class="text-center mb-8">
+                <h1 class="page-title text-4xl font-extrabold mb-3">외솔학원 온라인 클리닉 테스트</h1>
+                <p id="lobby-welcome-message" class="page-title text-3xl font-extrabold mb-2">환영합니다!</p>
+                <p id="lobby-quiz-info" class="text-gray-600 text-lg font-medium">오늘의 퀴즈를 불러왔습니다.</p>
+            </div>
+            
+            <div class="bg-white p-7 rounded-2xl shadow-lg card space-y-6 text-center">             
+                <div class="space-y-2">
+                    <p class="text-sm font-bold text-gray-800">출제 문항 수</p>
+                    <p id="lobby-q-count" class="text-xl font-medium text-indigo-600 bg-indigo-50 px-4 py-3 rounded-lg"></p>
+                </div>
+
+                <button 
+                    id="lobby-start-btn" 
+                    class="w-full py-4 px-6 text-base text-white font-bold rounded-xl btn-primary transition mt-2"
+                >
+                    <span class="flex items-center justify-center gap-2">
+                        <span>퀴즈 시작하기</span>
+                        <span>→</span>
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <div id="quiz-screen" class="hidden pb-2">
+            
+            <div class="quiz-header flex justify-between items-center gap-4">
+                <h2 id="quiz-title" class="text-base font-bold text-gray-900 truncate flex-1 min-w-0">
+                    Quiz Title
+                </h2>
+                <span id="question-number" class="badge number-badge text-sm flex-shrink-0 px-4 py-2 rounded-full">
+                    1 / 10
+                </span>
+            </div>
+
+            <div id="question-content" class="prose-custom bg-white p-6 rounded-2xl shadow-md card question-content-area mb-6">
+                </div>
+
+            <div id="choices-container" class="space-y-3 mb-6">
+                </div>
+
+            <div class="fixed bottom-0 left-0 right-0 nav-container">
+                <div id="quiz-nav" class="max-w-2xl mx-auto px-4 flex justify-between gap-3">
+                    <button 
+                        id="prev-btn" 
+                        class="flex-1 py-4 px-5 text-gray-800 font-bold rounded-xl shadow-sm btn-secondary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        ← 이전
+                    </button>
+                    <button 
+                        id="next-btn" 
+                        class="flex-1 py-4 px-5 text-white font-bold rounded-xl btn-primary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        다음 →
+                    </button>
+                    <button 
+                        id="submit-btn" 
+                        class="hidden flex-1 py-4 px-5 text-white font-bold rounded-xl btn-success transition"
+                    >
+                        ✓ 제출
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="results-screen" class="hidden pb-2">
+            
+            <div class="mb-8 pt-2">
+                <div class="bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/30 rounded-3xl shadow-xl card p-8 border-2 border-indigo-100/50">
+                    <div class="text-center mb-6">
+                        <div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-full mb-3">
+                            <span class="text-2xl">🎯</span>
+                            <span class="text-sm font-bold text-indigo-700 tracking-wide">RESULTS</span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mb-6">
+                        <p id="results-score" class="score-display text-3xl font-extrabold leading-tight">
+                            </p>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button 
+                            id="open-results-modal-btn" 
+                            class="py-3.5 px-6 text-gray-700 font-bold rounded-xl shadow-sm btn-secondary transition inline-flex items-center gap-2 hover:scale-105"
+                        >
+                            <span>📋</span>
+                            <span>문항 목록 보기</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results-review-container">
+                
+                <div class="quiz-header flex justify-between items-center gap-4">
+                    <h2 id="review-title" class="text-base font-bold flex-1 min-w-0">
+                        문제 다시보기
+                    </h2>
+                    <span id="review-question-number" class="badge number-badge text-sm flex-shrink-0 px-4 py-2 rounded-full">
+                        1 / 10
+                    </span>
+                </div>
+
+                <div id="review-question-content" class="prose-custom bg-white p-6 rounded-2xl shadow-md card question-content-area mb-6">
+                    </div>
+
+                <div id="review-choices-container" class="space-y-3 mb-6">
+                    </div>
+
+                <div id="review-explanation" class="explanation hidden">
+                    </div>
+            </div>
+
+            <div class="fixed bottom-0 left-0 right-0 nav-container">
+                <div id="review-nav" class="max-w-2xl mx-auto px-4 flex justify-between gap-2.5">
+                    <button 
+                        id="prev-result-btn" 
+                        class="flex-1 py-4 px-3 text-gray-800 font-bold rounded-xl shadow-sm btn-secondary transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                    >
+                        ← 이전
+                    </button>
+                    <button 
+                        id="back-to-start-btn" 
+                        class="flex-1 py-4 px-3 text-white font-bold rounded-xl btn-primary transition text-sm"
+                    >
+                        🏠 처음으로
+                    </button>
+                    <button 
+                        id="next-result-btn" 
+                        class="flex-1 py-4 px-3 text-gray-800 font-bold rounded-xl shadow-sm btn-secondary transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                    >
+                        다음 →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="results-list-modal" class="modal-overlay hidden fixed inset-0 flex items-center justify-center z-50 p-4">
+        <div class="modal-content bg-white rounded-3xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+            
+            <div class="flex justify-between items-center p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
+                <h3 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <span>📝</span>
+                    <span>전체 문항</span>
+                </h3>
+                <button 
+                    id="close-results-modal-btn" 
+                    class="text-gray-400 hover:text-gray-700 text-3xl font-bold leading-none w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/50 transition"
+                >
+                    ×
+                </button>
+            </div>
+            
+            <div id="results-list-modal-content" class="p-5 overflow-y-auto custom-scroll" style="max-height: calc(70vh - env(safe-area-inset-top));">
+                </div>
+            
+        </div>
+    </div>
+
+    <script src="js/online_quiz.js"></script>
+    
+</body>
+</html>
