@@ -745,8 +745,10 @@
             if (qData.type === '1') {
                 isCorrect = (userAnswers[index] === qData.correctChoiceIndex);
             } else if (qData.type === '2') {
-                const userAnswerText = (userAnswers[index] || "").trim();
-                isCorrect = (userAnswerText === qData.correctAnswerText);
+                // (수정) .trim() 대신 .replace(/\s/g, '')를 사용하여 모든 띄어쓰기 제거
+                const userAnswerSanitized = (userAnswers[index] || "").replace(/\s/g, '');
+                const correctAnswerSanitized = (qData.correctAnswerText || "").replace(/\s/g, '');
+                isCorrect = (userAnswerSanitized === correctAnswerSanitized);
             }
             
             // 1. 개별 문항 히스토리 업데이트
@@ -808,8 +810,17 @@
         listEl.className = 'space-y-2'; // (수정) 세로 정렬
 
         currentQuizQuestions.forEach((qData, index) => {
-            const userAnswerIndex = userAnswers[index];
-            const isCorrect = (userAnswerIndex === qData.correctChoiceIndex);
+            // --- (수정) ---
+            // handleSubmit과 동일한 채점 로직을 여기에 추가합니다.
+            let isCorrect = false;
+            if (qData.type === '1') {
+                isCorrect = (userAnswers[index] === qData.correctChoiceIndex);
+            } else if (qData.type === '2') {
+                const userAnswerSanitized = (userAnswers[index] || "").replace(/\s/g, '');
+                const correctAnswerSanitized = (qData.correctAnswerText || "").replace(/\s/g, '');
+                isCorrect = (userAnswerSanitized === correctAnswerSanitized);
+            }
+            // --- (수정 끝) ---
 
             const item = document.createElement('button');
             // (수정) 세로 목록에 맞는 스타일
@@ -847,8 +858,10 @@
         if (qData.type === '1') {
             isCorrect = (userAnswer === qData.correctChoiceIndex);
         } else if (qData.type === '2') {
-            const userAnswerText = (userAnswer || "").trim();
-            isCorrect = (userAnswerText === qData.correctAnswerText);
+            // (수정) .trim() 대신 .replace(/\s/g, '')를 사용하여 모든 띄어쓰기 제거
+            const userAnswerSanitized = (userAnswer || "").replace(/\s/g, '');
+            const correctAnswerSanitized = (qData.correctAnswerText || "").replace(/\s/g, '');
+            isCorrect = (userAnswerSanitized === correctAnswerSanitized);
         }
 
         reviewTitle.textContent = isCorrect 
@@ -889,7 +902,7 @@
             });
         } else if (qData.type === '2') {
             // (신규) 주관식: "내 답안"과 "정답" 표시
-            const userAnswerText = (userAnswer || "").trim();
+            const userAnswerText = (userAnswer || "").trim(); // (참고) 여기는 .trim()을 유지해도 괜찮습니다. (표시용)
             
             // 1. 내 답안 표시
             const userAnswerHtml = `
