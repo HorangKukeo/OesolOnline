@@ -17,7 +17,8 @@
         qRange: '',
         qCount: 0,
         history: [], // {QsetID, QuestionID, TimesAppeared, TimesCorrect}
-        dailyCounts: []
+        dailyCounts: [],
+        quizLog: []
     };
 
     let currentQuizQuestions = []; // 현재 퀴즈의 파싱된 문제 객체 배열
@@ -324,8 +325,9 @@
         return dataString;
     }
 
-// (신규) 사용자 데이터 문자열 파싱
     function parseUserData(dataString, userId) {
+        console.log("--- PARSE START ---");
+        console.log("Raw ⊥ string:", dataString);
         try {
             const parts = dataString.split('⊥');
             currentUser.id = userId;
@@ -333,32 +335,55 @@
             currentUser.qRange = parts[3] || 'Q001~Q003'; // 기본값
             currentUser.qCount = parseInt(parts[4], 10) || 10; // 기본값
 
-            const historyString = parts[6];
-            if (historyString && (historyString.startsWith('[') || historyString.startsWith('{'))) {
-                
-                // 오류 수정: 이중 이스케이프된 백슬래시(\")를 따옴표(")로 변경
-                const cleanedHistoryString = historyString.replace(/\\"/g, '"');
-                
-                currentUser.history = JSON.parse(cleanedHistoryString);
+            // (수정) .trim()을 사용하여 모든 문자열의 앞뒤 공백을 안전하게 제거
+            const historyString = (parts[6] || "").trim();
+            const dailyCountsString = (parts[7] || "").trim();
+            const quizLogString = (parts[8] || "").trim(); // (신규)
+
+            console.log("Received history string [parts[6]]:", historyString);
+            console.log("Received dailyCounts string [parts[7]]:", dailyCountsString);
+            console.log("Received quizLog string [parts[8]]:", quizLogString); // (신규)
+
+            // (수정) 더 안전한 파싱 로직: { 로 시작하든 [ 로 시작하든 처리
+            if (historyString.startsWith('{')) {
+                currentUser.history = JSON.parse(`[${historyString}]`); // {..} -> [{..}]
+            } else if (historyString.startsWith('[')) {
+                currentUser.history = JSON.parse(historyString); // [{..}] -> [{..}]
             } else {
-                currentUser.history = []; // 그 외(빈 문자열, null, undefined, 깨진 데이터)는 모두 빈 배열
+                currentUser.history = []; // "", "null" 등
             }
 
-            // parts[7] (dailyCounts)도 동일하게 파싱
-            const dailyCountsString = parts[7];
-            if (dailyCountsString && (dailyCountsString.startsWith('[') || dailyCountsString.startsWith('{'))) {
-                const cleanedDailyCountsString = dailyCountsString.replace(/\\"/g, '"');
-                currentUser.dailyCounts = JSON.parse(cleanedDailyCountsString);
+            // (수정) 더 안전한 파싱 로직
+            if (dailyCountsString.startsWith('{')) {
+                currentUser.dailyCounts = JSON.parse(`[${dailyCountsString}]`);
+            } else if (dailyCountsString.startsWith('[')) {
+                currentUser.dailyCounts = JSON.parse(dailyCountsString);
             } else {
                 currentUser.dailyCounts = [];
             }
             
-            console.log("사용자 데이터 파싱 완료:", currentUser);
+            // (신규) quizLog 파싱 로직 추가
+            if (quizLogString.startsWith('{')) {
+                currentUser.quizLog = JSON.parse(`[${quizLogString}]`);
+            } else if (quizLogString.startsWith('[')) {
+                currentUser.quizLog = JSON.parse(quizLogString);
+            } else {
+                currentUser.quizLog = [];
+            }
+            
+            console.log("Parsed currentUser.history:", JSON.parse(JSON.stringify(currentUser.history)));
+            console.log("Parsed currentUser.dailyCounts:", JSON.parse(JSON.stringify(currentUser.dailyCounts)));
+            console.log("Parsed currentUser.quizLog:", JSON.parse(JSON.stringify(currentUser.quizLog))); // (신규)
+            console.log("--- PARSE SUCCESS ---");
+
         } catch (error) {
-            // (수정) catch 블록에서도 history를 안전하게 초기화
+            // (수정) catch 블록에서도 모든 데이터를 안전하게 초기화
             currentUser.history = [];
             currentUser.dailyCounts = [];
-            console.error("사용자 데이터 파싱 오류:", error, dataString);
+            currentUser.quizLog = []; // (신규)
+            console.error("!!! PARSE FAILED. Resetting history. !!!");
+            console.error("Error details:", error, "Raw string was:", dataString);
+            console.log("--- PARSE FAILED ---");
             throw new Error('사용자 데이터를 파싱하는 중 오류가 발생했습니다.');
         }
     }
@@ -511,12 +536,6 @@
                 continue;
             }
 
-            // 객관식(type 1)이 아니면 건너뛰기
-            if (qSet.type !== '1') {
-                console.warn(`Set ID ${setId} is not type 1 (multiple choice), skipping.`);
-                continue;
-            }
-
             // 1~20번 문제까지 순회하며 유효한 문제(좌표) 수집
             for (let i = 1; i <= 20; i++) {
                 const qString = qSet['question' + i];
@@ -553,25 +572,36 @@
 
             qData.sourceSetId = coord.setId;
             qData.sourceQIndex = coord.qIndex;
-            
-            // 선지 섞기
-            const originalChoices = [...qData.choices];
-            let finalChoices = [];
-            let correctIndexInFinal = -1;
 
-            if (qData.isFixedOrder) {
-                finalChoices = originalChoices;
-            } else {
-                finalChoices = shuffleArray([...originalChoices]);
+            if (qData.type === '1') {
+                // (기존) 객관식 로직
+                const originalChoices = [...qData.choices];
+                let finalChoices = [];
+                let correctIndexInFinal = -1;
+
+                if (qData.isFixedOrder) {
+                    finalChoices = originalChoices;
+                } else {
+                    finalChoices = shuffleArray([...originalChoices]);
+                }
+                
+                correctIndexInFinal = finalChoices.findIndex(choice => choice === qData.correctAnswerText);
+                
+                qData.finalChoices = finalChoices; // 섞인 선지
+                qData.correctChoiceIndex = correctIndexInFinal; // 섞인 선지 기준 정답 index
+                
+                userAnswers.push(-1); // -1: 아직 선택 안함
+            } else if (qData.type === '2') {
+                // (신규) 주관식 로직
+                // 선지 섞기 필요 없음
+                qData.finalChoices = [];
+                qData.correctChoiceIndex = -1; // 사용 안 함
+                
+                userAnswers.push(""); // "": 아직 선택 안함 (주관식)
             }
             
-            correctIndexInFinal = finalChoices.findIndex(choice => choice === qData.correctAnswerText);
-            
-            qData.finalChoices = finalChoices; // 섞인 선지
-            qData.correctChoiceIndex = correctIndexInFinal; // 섞인 선지 기준 정답 index
-            
             currentQuizQuestions.push(qData);
-            userAnswers.push(-1); // -1: 아직 선택 안함
+
         });
 
         if (currentQuizQuestions.length === 0) {
@@ -602,22 +632,45 @@
         }
         questionContent.innerHTML = contentHtml;
 
-        // 3. 선지
+        // 3. 선지 (또는 입력창)
         choicesContainer.innerHTML = '';
-        qData.finalChoices.forEach((choice, index) => {
-            const button = document.createElement('button');
-            button.className = "choice-btn w-full text-left py-3 px-4 bg-white font-medium rounded-lg shadow border border-gray-200 hover:bg-gray-50 transition";
-            button.innerHTML = `<b>${CIRCLE_NUMBERS[index]}</b> ${formatTextToHtml(choice)}`;
-            button.dataset.choiceIndex = index;
-            
-            // 이전에 선택한 답이 있으면 'selected' 표시
-            if (userAnswers[currentQuestionIndex] === index) {
-                button.classList.add('selected');
-            }
 
-            button.onclick = () => handleChoiceSelect(index);
-            choicesContainer.appendChild(button);
-        });
+        if (qData.type === '1') {
+            // (기존) 객관식: 선지 버튼 생성
+            qData.finalChoices.forEach((choice, index) => {
+                const button = document.createElement('button');
+                button.className = "choice-btn w-full text-left py-3 px-4 bg-white font-medium rounded-lg shadow border border-gray-200 hover:bg-gray-50 transition";
+                button.innerHTML = `<b>${CIRCLE_NUMBERS[index]}</b> ${formatTextToHtml(choice)}`;
+                button.dataset.choiceIndex = index;
+                
+                if (userAnswers[currentQuestionIndex] === index) {
+                    button.classList.add('selected');
+                }
+
+                button.onclick = () => handleChoiceSelect(index);
+                choicesContainer.appendChild(button);
+            });
+        } else if (qData.type === '2') {
+            // (신규) 주관식: 텍스트 입력창 생성
+            const inputWrapper = document.createElement('div');
+            inputWrapper.className = "relative";
+            
+            const input = document.createElement('input');
+            input.type = "text";
+            input.className = "w-full px-5 py-4 border-2 border-gray-300 rounded-xl shadow-sm text-lg font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition";
+            input.placeholder = "여기에 답안을 입력하세요...";
+            
+            // 이전에 입력한 답이 있으면 채워넣기
+            input.value = userAnswers[currentQuestionIndex] || "";
+
+            // 입력할 때마다 userAnswers 배열에 실시간으로 저장
+            input.oninput = () => {
+                userAnswers[currentQuestionIndex] = input.value;
+            };
+            
+            inputWrapper.appendChild(input);
+            choicesContainer.appendChild(inputWrapper);
+        }
 
         // 4. 네비게이션 버튼 상태 업데이트
         prevBtn.disabled = (currentQuestionIndex === 0);
@@ -669,7 +722,7 @@
      * '제출' 버튼 클릭 (채점)
      */
     function handleSubmit() {
-        const unanwsered = userAnswers.findIndex(answer => answer === -1);
+        const unanwsered = userAnswers.findIndex(answer => answer === -1 || answer === "");
         if (unanwsered !== -1) {
              if (!confirm(`아직 풀지 않은 문제가 있습니다. (${unanwsered + 1}번)\n그래도 제출하시겠습니까?`)) {
                 currentQuestionIndex = unanwsered;
@@ -680,31 +733,64 @@
         
         console.log("Submitting:", userAnswers);
 
-        currentQuizQuestions.forEach((qData, index) => {
-            const isCorrect = (userAnswers[index] === qData.correctChoiceIndex);
-            updateSolveHistory(qData.sourceSetId, qData.sourceQIndex, isCorrect);
-        });
-
-        updateDailyCount();
-        uploadUserData();
-
-        showScreen('results');
-        renderResults();
-    }
-
-    /**
-     * (수정) 결과 화면 렌더링
-     */
-    function renderResults() {
-        // (신규) 1. 점수 계산 및 표시
         let correctCount = 0;
+
+        // --- 퀴즈 로그 개선 (수정 1) ---
+        // 퀴즈 세션의 타임스탬프를 한 번만 생성합니다.
+        const sessionTime = getKSTTimestampString();
+        // --- 퀴즈 로그 개선 (수정 1 끝) ---
+
         currentQuizQuestions.forEach((qData, index) => {
-            if (userAnswers[index] === qData.correctChoiceIndex) {
+            let isCorrect = false;
+            if (qData.type === '1') {
+                isCorrect = (userAnswers[index] === qData.correctChoiceIndex);
+            } else if (qData.type === '2') {
+                const userAnswerText = (userAnswers[index] || "").trim();
+                isCorrect = (userAnswerText === qData.correctAnswerText);
+            }
+            
+            // 1. 개별 문항 히스토리 업데이트
+            updateSolveHistory(qData.sourceSetId, qData.sourceQIndex, isCorrect);
+            
+            if (isCorrect) {
                 correctCount++;
             }
+
+            // --- 퀴즈 로그 개선 (수정 2) ---
+            // (신규) 2. 퀴즈 로그 생성 및 추가 (개별 문항 단위로)
+            // 기존의 세션 단위 로그를 대체합니다.
+            const newQuizLogEntry = {
+                time: sessionTime,                     // (필수) 세션 시간
+                QsetID: qData.sourceSetId,             // (필수) 문제의 Q-set ID
+                QuestionID: qData.sourceQIndex,        // (권장) 문제 번호
+                correct: isCorrect                     // (필수) 정답 여부
+            };
+            currentUser.quizLog.push(newQuizLogEntry);
+            // --- 퀴즈 로그 개선 (수정 2 끝) ---
         });
         const totalQuestions = currentQuizQuestions.length;
         const score = (totalQuestions > 0) ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+        // --- 퀴즈 로그 개선 (수정 3) ---
+        // (삭제) 2. 퀴즈 로그 생성 및 추가 (세션 단위)
+        // const newQuizLogEntry = { ... };
+        // currentUser.quizLog.push(newQuizLogEntry);
+        console.log("Quiz log updated (detailed):", currentUser.quizLog); // (수정) 로그 메시지
+        // --- 퀴즈 로그 개선 (수정 3 끝) ---
+
+        // 3. 일자별 풀이 횟수 업데이트
+        updateDailyCount();
+        
+        // 4. 모든 갱신된 데이터를 서버로 업로드
+        uploadUserData(); 
+
+        showScreen('results');
+        renderResults(score, correctCount);
+    }
+
+    function renderResults(score, correctCount) {
+        // 1. 점수 계산 및 표시
+        const totalQuestions = currentQuizQuestions.length;
         
         resultsScore.innerHTML = `
             <div class="text-5xl font-black mb-2">${score}<span class="text-3xl">점</span></div>
@@ -755,8 +841,15 @@
     function jumpToReview(index) {
         currentReviewIndex = index;
         const qData = currentQuizQuestions[currentReviewIndex];
-        const userAnswerIndex = userAnswers[currentReviewIndex];
-        const isCorrect = (userAnswerIndex === qData.correctChoiceIndex);
+        const userAnswer = userAnswers[currentReviewIndex]; // (수정) 인덱스가 아닐 수 있음
+        
+        let isCorrect = false;
+        if (qData.type === '1') {
+            isCorrect = (userAnswer === qData.correctChoiceIndex);
+        } else if (qData.type === '2') {
+            const userAnswerText = (userAnswer || "").trim();
+            isCorrect = (userAnswerText === qData.correctAnswerText);
+        }
 
         reviewTitle.textContent = isCorrect 
             ? `${index + 1}번 (정답 O)` 
@@ -772,24 +865,55 @@
         reviewQuestionContent.innerHTML = contentHtml;
 
         reviewChoicesContainer.innerHTML = '';
-        qData.finalChoices.forEach((choice, i) => {
-            const button = document.createElement('button');
-            button.className = "choice-btn w-full text-left py-3 px-4 font-medium rounded-lg shadow border";
-            button.innerHTML = `<b>${CIRCLE_NUMBERS[i]}</b> ${formatTextToHtml(choice)}`;
-            button.disabled = true; 
 
-            if (i === qData.correctChoiceIndex) {
-                button.classList.add('correct');
-            } 
-            else if (i === userAnswerIndex) {
-                button.classList.add('incorrect');
-            }
-            else {
-                 button.classList.add('bg-white', 'border-gray-200', 'opacity-70');
-            }
+        if (qData.type === '1') {
+            // (기존) 객관식: 선지 버튼 표시
+            const userAnswerIndex = userAnswer; // type 1일 땐 userAnswer가 index임
+            qData.finalChoices.forEach((choice, i) => {
+                const button = document.createElement('button');
+                button.className = "choice-btn w-full text-left py-3 px-4 font-medium rounded-lg shadow border";
+                button.innerHTML = `<b>${CIRCLE_NUMBERS[i]}</b> ${formatTextToHtml(choice)}`;
+                button.disabled = true; 
+
+                if (i === qData.correctChoiceIndex) {
+                    button.classList.add('correct');
+                } 
+                else if (i === userAnswerIndex) {
+                    button.classList.add('incorrect');
+                }
+                else {
+                     button.classList.add('bg-white', 'border-gray-200', 'opacity-70');
+                }
+                
+                reviewChoicesContainer.appendChild(button);
+            });
+        } else if (qData.type === '2') {
+            // (신규) 주관식: "내 답안"과 "정답" 표시
+            const userAnswerText = (userAnswer || "").trim();
             
-            reviewChoicesContainer.appendChild(button);
-        });
+            // 1. 내 답안 표시
+            const userAnswerHtml = `
+                <div class="mb-2">
+                    <span class="text-sm font-bold text-gray-600">내 답안</span>
+                    <div class="w-full px-5 py-4 border-2 rounded-xl shadow-sm ${isCorrect ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50'}">
+                        ${userAnswerText || "(입력 안 함)"}
+                    </div>
+                </div>
+            `;
+            
+            // 2. 정답 표시
+            const correctAnswerHtml = `
+                <div>
+                    <span class="text-sm font-bold text-gray-600">정답</span>
+                    <div class="w-full px-5 py-4 border-2 border-green-400 bg-green-50 rounded-xl shadow-sm">
+                        ${qData.correctAnswerText}
+                    </div>
+                </div>
+            `;
+            
+            // 오답일 때만 정답을 보여주거나, 항상 보여줄 수 있음 (여기선 항상 표시)
+            reviewChoicesContainer.innerHTML = userAnswerHtml + correctAnswerHtml;
+        }
 
         if (qData.explanation) {
             reviewExplanation.innerHTML = `<span class="explanation-label">[해설]</span> ${formatTextToHtml(qData.explanation)}`;
@@ -860,26 +984,38 @@
             return;
         }
 
+        console.log("--- UPLOAD START ---");
+        // 현재 메모리 상태의 값을 복사하여 로그 출력
+        console.log("Data to be sent (history):", JSON.parse(JSON.stringify(currentUser.history)));
+        console.log("Data to be sent (dailyCounts):", JSON.parse(JSON.stringify(currentUser.dailyCounts)));
+
         const dataToSend = {
             id: currentUser.id,
-            lastAccess: new Date().toISOString(),
-            history: JSON.stringify(currentUser.history),
-            dailyCounts: JSON.stringify(currentUser.dailyCounts)
+            // (수정) KST 타임스탬프 함수 사용
+            lastAccess: getKSTTimestampString(),
+            // (수정) stringify 제거. 배열/객체 원본을 보냄
+            history: currentUser.history,
+            // (수정) stringify 제거. 배열/객체 원본을 보냄 (파일에 이미 이렇게 되어있음)
+            dailyCounts: currentUser.dailyCounts,
+            quizLog: currentUser.quizLog
         };
+
+        console.log("Final dataToSend object (pre-body):", dataToSend);
 
         try {
             const response = await fetch(UPLOAD_WEBHOOK_URL, {
                 method: 'POST', // 또는 서버 설정에 맞게
                 headers: { 'Content-Type': 'application/json' },
+                // dataToSend 객체 전체가 여기서 1번만 stringify 됩니다.
                 body: JSON.stringify(dataToSend)
             });
             if (response.ok) {
-                console.log("사용자 풀이 기록이 성공적으로 서버에 저장되었습니다.");
+                console.log("--- UPLOAD SUCCESS ---");
             } else {
-                console.error("서버에 풀이 기록을 저장하는 데 실패했습니다:", response.status);
+                console.error("--- UPLOAD FAILED (Server Error) ---", response.status);
             }
         } catch (error) {
-            console.error("풀이 기록 업로드 중 네트워크 오류 발생:", error);
+            console.error("--- UPLOAD FAILED (Network Error) ---", error);
         }
     }
 
