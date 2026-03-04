@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horangs+ Editor</title>
+    
+    <style>
+        /* 고어 지원을 위한 나눔바른고딕 옛한글 필수 적용 */
+        @font-face {
+            font-family: 'NanumBarunGothicYetHangul';
+            font-weight: 400;
+            src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumBarunGothicYetHangul/NanumBarunGothic-YetHangul.woff2') format('woff2'),
+                 url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumBarunGothicYetHangul/NanumBarunGothic-YetHangul.woff') format('woff');
+        }
+
+        :root {
+            /* 눈이 편안한 Blue 계열 & 산뜻한 컬러 팔레트 */
+            --bg-app: #f1f5f9; 
+            --bg-panel: #1e293b; 
+            --bg-editor: #0f172a; 
+            
+            --primary: #2563eb; /* 메인 블루 */
+            --primary-hover: #1d4ed8;
+            --accent: #3b82f6; /* 포인트 라이트 블루 */
+            --accent-hover: #2563eb;
+            
+            --success: #10b981; /* 정답 에메랄드 그린 */
+            --success-bg: #d1fae5;
+            
+            --text-main: #334155;
+            --text-sub: #64748b;
+            --text-muted: #94a3b8;
+            
+            --surface: #ffffff;
+            --surface-alt: #f8fafc;
+            
+            --border: #e2e8f0;
+            --border-light: #f1f5f9;
+
+            --green: #1e8449; /* 차분하고 깊은 숲 녹색 (Dark Forest Green) */
+            --greent: #44b574;
+            --bluet: #64b8f0;
+            --red: #c0392b;   /* 무게감 있는 어두운 붉은색 (Dark Crimson/Burgundy) */
+
+            /* Dimensions - STRICT A4 */
+            --a4-width: 210mm;
+            --a4-height: 297mm;
+            --page-padding: 18mm;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            background-color: var(--bg-app);
+            font-family: 'NanumBarunGothicYetHangul', 'Noto Sans KR', sans-serif;
+            overflow: hidden;
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* --- Custom Scrollbar --- */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .editor-container ::-webkit-scrollbar-thumb { background: #475569; }
+        .editor-container ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* --- Mini Header for Page 2+ --- */
+        .mini-header {
+            position: absolute;
+            top: 12mm;
+            right: 20mm;
+            text-align: right;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            background: var(--surface-alt);
+            padding: 5px 12px;
+            border-radius: 12px;
+        }
+
+        /* --- Mini Logo for Page 2+ --- */
+        .mini-logo {
+            position: absolute;
+            top: 12mm;
+            left: 20mm;
+            height: 7mm;
+            object-fit: contain;
+            opacity: 0.8;
+        }
+
+        /* --- Editor Pane --- */
+        .editor-container {
+            width: 35%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-panel);
+            border-right: 1px solid rgba(0,0,0,0.1);
+            z-index: 10;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.08);
+        }
+
+        .editor-header {
+            padding: 20px 24px;
+            background-color: var(--bg-editor);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-header h2 { 
+            margin: 0; 
+            font-size: 16px; 
+            font-weight: 700; 
+            letter-spacing: 1.5px; 
+            color: #f1f5f9; 
+        }
+
+        .header-actions { display: flex; gap: 8px; }
+
+        .btn-action {
+            /* 에디터 버튼도 부드러운 블루 그라데이션 */
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
+            font-family: 'NanumBarunGothicYetHangul', sans-serif;
+        }
+        .btn-action:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 14px rgba(59, 130, 246, 0.3);
+            background: linear-gradient(135deg, var(--accent-hover), var(--primary-hover));
+        }
+        .btn-action:active { transform: translateY(0); }
+
+        #teacher-btn, #student-btn {
+            background: #334155;
+            box-shadow: none;
+        }
+        #teacher-btn:hover, #student-btn:hover { background: #475569; transform: translateY(-1px); }
+
+        textarea {
+            flex-grow: 1;
+            background-color: transparent;
+            color: #e2e8f0;
+            border: none;
+            padding: 24px;
+            font-family: 'NanumBarunGothicYetHangul', monospace;
+            font-size: 15px;
+            line-height: 1.7;
+            resize: none;
+            outline: none;
+        }
+        textarea::placeholder { color: #475569; }
+
+        /* --- Preview Pane --- */
+        .preview-container {
+            width: 65%;
+            height: 100%;
+            overflow-y: auto;
+            padding: 60px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            background-color: var(--bg-app);
+        }
+
+        /* --- Sheet Styling (Strict A4) --- */
+        .sheet {
+            width: var(--a4-width);
+            height: var(--a4-height);
+            background: white;
+            padding: var(--page-padding);
+            padding-top: 15mm;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 12px; /* 화면에서만 둥근 모서리 */
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .sheet-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; 
+        }
+        .sheet-content > :last-child { margin-bottom: 10px !important; }
+
+        /* --- Header Section --- */
+        .header-section {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--border-light);
+            min-height: 70px;
+        }
+
+        .header-left { display: flex; justify-content: flex-start; }
+        .header-left img { max-height: 12mm; max-width: 100%; display: block; margin-bottom: -3mm;}
+        
+        .header-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            white-space: nowrap; 
+        }
+        
+        .header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header-sub-title {
+            font-size: 16px;
+            color: var(--accent);
+            /*background-color: #eff6ff;
+            padding: 4px 14px;*/
+            border-radius: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 11px;
+        }
+        .header-main-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            font-size: 14px;
+        }
+        .info-label { font-weight: 700; color: var(--text-sub); margin-right: 8px; }
+        .info-value { width: 80px; border-bottom: 1.5px dotted var(--text-muted); height: 16px; }
+
+        /* --- Passage Block --- */
+        .passage-block {
+            background-color: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            padding: 18px 22px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-main);
+            text-align: justify;
+            white-space: pre-wrap;
+            margin-bottom: 30px; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        /* --- Question Block --- */
+        .question-block {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .q-text-row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            margin-top: 5px;
+        }
+
+        .q-num {
+            background-color: #dfe9f7;
+            color: var(--accent);
+            min-width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 700;
+            margin-right: 12px;
+            flex-shrink: 0;
+            margin-top: -2px; 
+        }
+
+        .q-text {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1e293b;
+            line-height: 1.55;
+        }
+        .q-text b { color: var(--accent); }
+        .q-text u { text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+        /* --- Options --- */
+        .ox-container {
+            display: flex;
+            gap: 8px;
+            padding-left: 38px; 
+            width: 99%;
+        }
+
+        .ox-item {
+            flex: 1;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            
+            /* (1) 선이 조금 더 잘 보이게: 두께를 1px에서 2px로 변경 */
+            border: 3px solid var(--border);
+            
+            /* (2) shadow 추가: 부드러운 입체감을 위한 그림자 추가 */
+            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            
+            background: var(--surface);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-sub);
+            cursor: pointer;
+            /* 기존 transition 설정이 새로 추가된 border와 shadow에도 적용됩니다. */
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ox-item:hover {
+            border-color: #93c5fd;
+            color: var(--accent);
+            background: #eff6ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.1);
+        }
+
+        .ox-item.is-correct {
+            border-color: var(--success);
+            background-color: var(--success);
+            color: #ffffff;
+            font-weight: 700;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .ox-item.is-correct::after {
+            content: '✓';
+            position: absolute;
+            right: 12px;
+            font-size: 13px;
+            color: #ffffff; 
+            font-weight: 700;
+        }
+
+        /* --- Footer --- */
+        .sheet-footer {
+            height: 20px;
+            margin-top: auto;
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-muted);
+            padding-top: 14px;
+            font-weight: 600;
+            letter-spacing: 2px;
+        }
+
+        .answer-sheet-header {
+            background: #547eda;
+            color: white;
+            padding: 18px 24px;
+            border-radius: 10px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            
+            /* 그림자에서 파란기를 빼고 깊이감만 추가 */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .ans-header-title h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; font-weight: 700; }
+        .ans-header-info { text-align: right; font-size: 14px; opacity: 0.95; font-weight: 500; line-height: 1.6; }
+
+        .answer-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                width: 99%;
+                margin-left: auto;
+                margin-right: auto;
+        }
+
+        .answer-card {
+            display: flex;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            align-items: flex-start;
+            transition: all 0.2s;
+            box-shadow: 2px 2px 3px rgba(0,0,0,0.1);
+        }
+        .answer-card:hover {
+            box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+            border-color: #cbd5e1;
+        }
+        
+        .ac-num {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary); /* 보라색 제거, 블루 적용 */
+            width: 36px;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        .ac-content { flex-grow: 1; font-size: 12px; line-height: 1.5; color: var(--text-main); }
+        .ac-row { display: flex; margin-bottom: 8px; align-items: flex-start; }
+        .ac-row:last-child { margin-bottom: 0; }
+        
+        .ac-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-right: 12px;
+            min-width: 42px;
+            height: 24px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            margin-top: 1px;
+        }
+        .badge-ans { background: #d6e6fb; color: var(--primary); }
+        .badge-exp { background: #e6ebef; color: #475569; }
+        
+        .ac-text { flex: 1; margin-top: 3px; color: #1e293b; text-align: justify; }
+        .ac-text b { color: var(--primary); }
+        .ac-text u { text-decoration-color: var(--primary); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+        /* --- 추가 스타일 --- */
+        .lit-o {
+            background-color: #d7e8fa;
+            color: #2980b9;
+            font-weight: 800;
+            padding: 1px 2px;
+            border-radius: 4px;
+        }
+
+        .lit-tip-box-left {
+            display: inline-block;
+            white-space: pre-wrap;
+            font-size: 0.9em;
+            padding: 2px 7px;
+            line-height: 1.8;
+            border: 1px solid var(--green); /* 아까 추가한 어두운 녹색 사용 */
+            color: var(--green);
+            border-radius: 4px;
+            background-color: #fff;
+            z-index: 10;
+            width: 100%;
+        }
+
+        /* --- Toast --- */
+        .toast-notification {
+            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background-color: rgba(15, 23, 42, 0.95); color: white; padding: 14px 32px;
+            border-radius: 30px; font-size: 15px; font-weight: 600; opacity: 0; visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            backdrop-filter: blur(8px);
+        }
+        .toast-notification.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+        
+        /* --- Print Mode Optimized --- */
+        @media print {
+            @page { size: A4; margin: 0; }
+            
+            html, body {
+                width: 210mm;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                background: white;
+                overflow: visible;
+            }
+
+            .editor-container, .header-actions, .toast-notification { display: none !important; }
+            
+            .preview-container { 
+                width: 100%; 
+                margin: 0; 
+                padding: 0; 
+                background: white;
+                display: block;
+                overflow: visible;
+                gap: 0;
+            }
+
+            .sheet {
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding: var(--page-padding);
+                box-shadow: none;
+                border: none;
+                border-radius: 0; 
+                page-break-after: always;
+                break-after: page;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .sheet:last-child {
+                page-break-after: auto;
+                break-after: auto;
+            }
+            
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="editor-container">
+        <div class="editor-header">
+            <h2>WORKSHEET DESIGNER</h2>
+            <div class="header-actions">
+                <button id="teacher-btn" class="btn-action">교사용</button>
+                <button id="student-btn" class="btn-action">학생용 정답/해설</button>
+                <button class="btn-action" onclick="startPrint()">PDF 저장 / 인쇄</button>
+            </div>
+        </div>
+        <textarea id="dslInput" spellcheck="false" placeholder="DSL 코드를 입력하세요...">
+R1	이름
+R2	학습일
+sheetTitle	현대 문학의 이해
+sheetTitle_sub	LEVEL 3. 심화 학습
+logo	https://via.placeholder.com/150x50/2563eb/ffffff?text=LOGO
+gapA	100
+gapN	100
+###SPLIT###
+A	"이 지문은 기본 줄 간격(100)입니다.
+아래 문항과의 간격이 더 넓어졌습니다. ᄀᆞᆺᄯᆞᆫ 고어 테스트"
+N	중앙 정렬이 잘 되었습니까? *b*{O_@X}
+N	문항 사이의 간격은 어떻습니까? *b*{적절함_@좁음@넓음}
+
+gapA	180
+gapN	200
+###SPLIT###
+A	"이 지문은 줄 간격이 180으로 설정되었습니다.
+훨씬 넓어서 읽기가 편할 수 있습니다.
+문항 간격도 200으로 설정되어 여유가 있습니다."
+N	이 문항은 위 문항과 간격이 넓습니다. *b*{O_@X}
+N	여유로운 배치가 더 보기 좋습니까? *b*{네_@아니오}	여백은 디자인의 중요한 요소입니다.</textarea>
+    </div>
+
+    <div class="preview-container" id="previewDeck">
+    </div>
+
+    <div id="toast" class="toast-notification">저장되었습니다!</div>
+
+    <script>
+        const inputArea = document.getElementById('dslInput');
+        const previewDeck = document.getElementById('previewDeck');
+        const teacherBtn = document.getElementById('teacher-btn');
+        const studentBtn = document.getElementById('student-btn');
+        const toast = document.getElementById('toast');
+        const STORAGE_KEY = 'worksheet_dsl_v6';
+
+        // --- State ---
+        let parsedWorksheetData = [];
+        let pages = [];
+        let currentMeta = { gapA: 100, gapN: 100 };
+        let currentViewMode = null; 
+
+        // --- Init ---
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if(saved) inputArea.value = saved;
+            render();
+        });
+
+        // --- Core ---
+        function saveToLocal() {
+            localStorage.setItem(STORAGE_KEY, inputArea.value);
+            showToast();
+        }
+
+        function showToast() {
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // --- Events ---
+        let debounce;
+        inputArea.addEventListener('input', () => {
+            clearTimeout(debounce);
+            debounce = setTimeout(() => {
+                removeAnswerSheet();
+                render();
+            }, 300);
+        });
+
+        inputArea.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const s = this.selectionStart, e_pos = this.selectionEnd;
+                this.value = this.value.substring(0, s) + "\t" + this.value.substring(e_pos);
+                this.selectionStart = this.selectionEnd = s + 1;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                saveToLocal();
+            }
+        });
+
+        teacherBtn.addEventListener('click', () => toggleAnswerSheet('teacher'));
+        studentBtn.addEventListener('click', () => toggleAnswerSheet('student'));
+
+        function applyTextFormatting(text) {
+            if (!text) return '';
+            let formatted = text;
+            formatted = formatted.replace(/\{_(.*?)_\}/g, '<u>$1</u>');
+            formatted = formatted.replace(/\{O(.*?)O\}/g, '<span class="lit-o">$1</span>');
+            formatted = formatted.replace(/\{◁(.*?)◁\}/g, '<span class="lit-tip-box-left">$1</span>');
+            formatted = formatted.replace(/\{\{(.*?)\}\}/g, '<b>$1</b>');
+            
+            // 3. Line Break: | -> <br> (추가된 부분)
+            formatted = formatted.replace(/\|/g, '<br>');
+            
+            return formatted;
+        }
+
+        // --- Render Logic ---
+        function render() {
+            previewDeck.innerHTML = '';
+            pages = [];
+            
+            const raw = inputArea.value;
+            const rawParts = raw.split('###SPLIT###');
+            
+            // 1. Meta Parsing
+            currentMeta = { gapA: 100, gapN: 100 };
+            if (rawParts[0]) {
+                rawParts[0].trim().split('\n').forEach(line => {
+                    const [k, ...v] = line.split('\t');
+                    if(k) currentMeta[k.trim()] = v.join('\t').trim();
+                });
+            }
+
+            const contentLines = rawParts.slice(1).join('\n').trim().split('\n');
+            const localElements = [];
+            let qCounter = 0;
+
+            // 2. Content Parsing
+            let i = 0;
+            let parseGapA = currentMeta.gapA;
+            let parseGapN = currentMeta.gapN;
+
+            while(i < contentLines.length) {
+                let line = contentLines[i];
+                if(!line.trim()) { i++; continue; }
+                
+                const lowerLine = line.trim().toLowerCase();
+                if (lowerLine.startsWith('gap')) {
+                     const [cmd, val] = line.split('\t');
+                     if(cmd.trim() === 'gapA') parseGapA = parseInt(val) || 100;
+                     if(cmd.trim() === 'gapN') parseGapN = parseInt(val) || 100;
+                     i++; continue;
+                }
+                if (lowerLine === 'split') {
+                    localElements.push({ type: 'SPLIT' });
+                    i++; continue;
+                }
+                if (line.match(/^A\t"/)) {
+                    let content = line.replace(/^A\t"/, '');
+                    let fullPassage = "";
+                    if (content.endsWith('"') && !content.endsWith('\\"')) {
+                         fullPassage = content.slice(0, -1);
+                    } else {
+                        fullPassage = content;
+                        i++;
+                        while(i < contentLines.length) {
+                            let nextLine = contentLines[i];
+                            if (nextLine.trim().endsWith('"')) {
+                                fullPassage += "\n" + nextLine.trim().slice(0, -1);
+                                break;
+                            } else {
+                                fullPassage += "\n" + nextLine;
+                            }
+                            i++;
+                        }
+                    }
+                    localElements.push({ type: 'A', content: fullPassage, gapA: parseGapA });
+                } else if (line.startsWith('N\t')) {
+                    const parts = line.substring(2).split('\t');
+                    localElements.push({ 
+                        type: 'N', 
+                        qIndex: qCounter++,
+                        content: parts[0],
+                        explanation: parts[1] || null,
+                        gapN: parseGapN
+                    });
+                } else if (line.startsWith('A\t')) {
+                    localElements.push({ type: 'A', content: line.substring(2), gapA: parseGapA });
+                }
+                i++;
+            }
+            parsedWorksheetData = localElements;
+
+           // 3. Layout Engine
+            let pageNum = 1;
+            let qNum = 1;
+            let currentPage = createPage(pageNum, currentMeta);
+            previewDeck.appendChild(currentPage);
+            pages.push(currentPage);
+            
+            if(pageNum === 1) addHeader(currentPage, currentMeta);
+
+            parsedWorksheetData.forEach(item => {
+                if(item.type === 'SPLIT') {
+                    pageNum++;
+                    currentPage = createPage(pageNum, currentMeta);
+                    previewDeck.appendChild(currentPage);
+                    pages.push(currentPage);
+                    
+                    if (pageNum > 1) currentPage.style.paddingTop = '23mm';
+                    
+                    addMiniHeader(currentPage, currentMeta);
+                    addMiniLogo(currentPage, currentMeta);
+                    return;
+                }
+
+                const el = createElement(item, qNum);
+                if(item.type === 'N') qNum++;
+
+                let contentArea = currentPage.querySelector('.sheet-content');
+                contentArea.appendChild(el);
+
+                if (isOverflowing(contentArea)) {
+                    contentArea.removeChild(el);
+                    
+                    if(item.type === 'A') {
+                        splitAndAppend(item.content, item.gapA, currentPage, pageNum, currentMeta);
+                        currentPage = pages[pages.length-1];
+                        pageNum = pages.length;
+                    } else {
+                        pageNum++;
+                        currentPage = createPage(pageNum, currentMeta);
+                        previewDeck.appendChild(currentPage);
+                        pages.push(currentPage);
+                        
+                        if (pageNum > 1) currentPage.style.paddingTop = '23mm';
+                        
+                        addMiniHeader(currentPage, currentMeta); 
+                        addMiniLogo(currentPage, currentMeta);
+                        
+                        currentPage.querySelector('.sheet-content').appendChild(el);
+                    }
+                }
+            });
+        }
+
+        // --- Helper: Split Passage ---
+        function splitAndAppend(text, gapVal, startPage, startPageNum, meta) {
+            let remain = text;
+            let activePage = startPage;
+            let activeNum = startPageNum;
+            let container = activePage.querySelector('.sheet-content');
+
+            while(remain.length > 0) {
+                const el = document.createElement('div');
+                el.className = 'passage-block';
+                const lineHeight = 1.7 * ((gapVal||100) / 100);
+                el.style.lineHeight = lineHeight;
+                el.innerHTML = applyTextFormatting(remain); 
+                container.appendChild(el);
+
+                if(!isOverflowing(container)) return; 
+
+                container.removeChild(el);
+                
+                let low = 0, high = remain.length, best = 0;
+                while(low <= high) {
+                    let mid = Math.floor((low+high)/2);
+                    el.innerText = remain.substring(0, mid) + '...';
+                    container.appendChild(el);
+                    if(!isOverflowing(container)) {
+                        best = mid;
+                        low = mid + 1;
+                    } else {
+                        high = mid - 1;
+                    }
+                    container.removeChild(el);
+                }
+
+                const part = remain.substring(0, best);
+                remain = remain.substring(best);
+                
+                const finalEl = document.createElement('div');
+                finalEl.className = 'passage-block';
+                finalEl.style.lineHeight = lineHeight;
+                finalEl.innerText = part;
+                container.appendChild(finalEl);
+
+                if(remain.length > 0) {
+                    activeNum++;
+                    activePage = createPage(activeNum, meta);
+                    previewDeck.appendChild(activePage);
+                    pages.push(activePage);
+                    
+                    if (activeNum > 1) activePage.style.paddingTop = '25mm';
+
+                    addMiniHeader(activePage, meta);
+                    addMiniLogo(activePage, meta);
+
+                    container = activePage.querySelector('.sheet-content');
+                }
+            }
+        }
+
+        function isOverflowing(con) { return con.scrollHeight > con.clientHeight + 1; }
+
+        function createElement(item, qNum) {
+            if(item.type === 'A') {
+                const el = document.createElement('div');
+                el.className = 'passage-block';
+                el.innerHTML = applyTextFormatting(item.content);
+                const lineHeight = 1.7 * ((item.gapA || 100) / 100);
+                el.style.lineHeight = lineHeight;
+                return el;
+            } else if (item.type === 'N') {
+                const el = document.createElement('div');
+                el.className = 'question-block';
+                el.dataset.qIndex = item.qIndex;
+                const mb = 8 * ((item.gapN || 100) / 100);
+                el.style.marginBottom = `${mb}px`;
+
+                const bMatch = item.content.match(/\*b{1,2}\*\{(.*?)\}/);
+                
+                let qText = item.content;
+                let optsHTML = '';
+                let correctIndices = [];
+
+                if (bMatch) {
+                    qText = applyTextFormatting(item.content.replace(bMatch[0], ''));
+                    
+                    const opts = bMatch[1].split('@');
+                    const items = opts.map((o, i) => {
+                        let txt = o;
+                        if(o.includes('_')) { 
+                            correctIndices.push(i); 
+                            txt = o.replace(/_/g,''); 
+                        }
+
+                        // --- | 를 <br>로 변환 (추가) ---
+                        txt = txt.replace(/\|/g, '<br>');
+
+                        // 글자 수 계산 시 <br>은 제외하고 실제 텍스트 길이만 측정하기 위해 임시 제거 후 계산
+                        const cleanTextForLength = txt.replace(/<br>/g, '');
+                        let fontSize = '15px';
+                        const len = cleanTextForLength.length;
+
+                        if (len > 10) {
+                            fontSize = '11px'; // 10자 초과 시 작게
+                        } else if (len > 7) {
+                            fontSize = '12px'; // 6~10자 사이일 때 중간
+                        } else if (len > 1) {
+                            fontSize = '13px';
+                        }
+                        // --------------------------------------------------
+
+                        // 태그 안에 style 속성을 추가합니다.
+                        return `<div class="ox-item" data-idx="${i}" style="font-size: ${fontSize}">${txt}</div>`
+                    }).join('');
+                    
+                    optsHTML = `<div class="ox-container" data-correct-indices="${correctIndices.join(',')}">${items}</div>`;
+                } else {
+                    qText = applyTextFormatting(qText);
+                }
+
+                el.innerHTML = `
+                    <div class="q-text-row">
+                        <span class="q-num">${qNum < 10 ? '0'+qNum : qNum}</span>
+                        <span class="q-text">${qText}</span>
+                    </div>
+                    ${optsHTML}
+                `;
+                return el;
+            }
+            return document.createElement('div');
+        }
+
+        function createPage(num, meta) {
+            const s = document.createElement('div');
+            s.className = 'sheet';
+            s.innerHTML = `<div class="sheet-content"></div><div class="sheet-footer">${'nop' in meta ? '' : '- '+num+' -'}</div>`;
+            return s;
+        }
+
+        function addHeader(sheet, meta) {
+            const h = document.createElement('div');
+            h.className = 'header-section';
+            
+            const left = document.createElement('div');
+            left.className = 'header-left';
+            if(meta.logo) left.innerHTML = `<img src="${meta.logo}">`;
+            
+            const center = document.createElement('div');
+            center.className = 'header-center';
+            center.innerHTML = `
+                ${meta.sheetTitle_sub ? `<div class="header-sub-title">${meta.sheetTitle_sub}</div>` : ''}
+                <div class="header-main-title">${meta.sheetTitle || 'Untitled'}</div>
+            `;
+            
+            const right = document.createElement('div');
+            right.className = 'header-right';
+            Object.keys(meta).filter(k => k.startsWith('R')).sort().forEach(k => {
+                right.innerHTML += `<div class="info-row"><span class="info-label">${meta[k]}</span><div class="info-value"></div></div>`;
+            });
+
+            h.append(left, center, right);
+            sheet.insertBefore(h, sheet.querySelector('.sheet-content'));
+        }
+
+        function addMiniHeader(sheet, meta) {
+            const el = document.createElement('div');
+            el.className = 'mini-header';
+            
+            const mainTitle = meta.sheetTitle || '';
+            const subTitle = meta.sheetTitle_sub || '';
+            
+            if (subTitle) el.innerText = `${subTitle} | ${mainTitle}`;
+            else el.innerText = mainTitle;
+            
+            sheet.appendChild(el);
+        }
+
+        function addMiniLogo(sheet, meta) {
+            if (!meta.logo) return;
+            const img = document.createElement('img');
+            img.src = meta.logo;
+            img.className = 'mini-logo';
+            sheet.appendChild(img);
+        }
+
+        // --- Answer Sheet Functions ---
+        function toggleAnswerSheet(mode) {
+            const existingSheet = document.querySelector('.answer-sheet');
+
+            if (currentViewMode === mode) {
+                removeAnswerSheet();
+                toggleHighlights(false);
+                currentViewMode = null;
+                return;
+            }
+            
+            if (!existingSheet) createAnswerSheet();
+
+            if (mode === 'teacher') toggleHighlights(true);
+            else if (mode === 'student') toggleHighlights(false);
+
+            currentViewMode = mode;
+        }
+
+        function toggleHighlights(show) {
+            const allContainers = document.querySelectorAll('.question-block .ox-container');
+            
+            allContainers.forEach(container => {
+                container.querySelectorAll('.is-correct').forEach(el => el.classList.remove('is-correct'));
+
+                if (show && container.dataset.correctIndices) {
+                    const indices = container.dataset.correctIndices.split(',').filter(s => s !== '');
+                    indices.forEach(idx => {
+                        const btn = container.querySelector(`.ox-item[data-idx="${idx}"]`);
+                        if(btn) btn.classList.add('is-correct');
+                    });
+                }
+            });
+        }
+
+        function removeAnswerSheet() {
+            const sheets = document.querySelectorAll('.answer-sheet');
+            sheets.forEach(s => s.remove());
+        }
+
+        function createAnswerSheet() {
+            const targetQs = parsedWorksheetData.filter(i => {
+                if(i.type !== 'N') return false;
+                if(i.explanation) return true;
+                const m = i.content.match(/\*b{1,2}\*\{(.*?)\}/);
+                return m && m[1].includes('_');
+            });
+            if(!targetQs.length) return;
+
+            let map = new Map();
+            let c = 1;
+            parsedWorksheetData.forEach(p => { if(p.type === 'N') map.set(p.qIndex, c++); });
+
+            let ansPageNum = pages.length + 1;
+            
+            let currentSheet = createPage(ansPageNum, currentMeta); 
+            currentSheet.classList.add('answer-sheet');
+            let container = currentSheet.querySelector('.sheet-content');
+            
+            const h = document.createElement('div');
+            h.className = 'answer-sheet-header';
+            h.innerHTML = `
+                <div class="ans-header-title">
+                    <h1>정답 및 해설</h1>
+                </div>
+                <div class="ans-header-info">
+                    ${currentMeta.sheetTitle_sub || ''}<br>
+                    ${currentMeta.sheetTitle || ''}
+                </div>
+            `;
+            container.appendChild(h);
+
+            let grid = document.createElement('div');
+            grid.className = 'answer-grid';
+            container.appendChild(grid);
+
+            previewDeck.appendChild(currentSheet);
+
+            targetQs.forEach((item) => {
+                const num = map.get(item.qIndex);
+                let ans = '';
+                
+                const m = item.content.match(/\*b{1,2}\*\{(.*?)\}/);
+                // createAnswerSheet 함수 내부의 정답 추출 부분
+                if(m) {
+                    const answers = m[1].split('@')
+                        .filter(x => x.includes('_'))
+                        .map(x => x.replace(/_/g, '').replace(/\|/g, '<br>')); // replace 추가
+                    ans = answers.join(', ');
+                }
+
+                const card = document.createElement('div');
+                card.className = 'answer-card';
+                card.innerHTML = `
+                    <div class="ac-num">${num < 10 ? '0'+num : num}</div>
+                    <div class="ac-content">
+                        ${ans ? `<div class="ac-row"><span class="ac-badge badge-ans">정답</span><span class="ac-text">${ans}</span></div>` : ''}
+                        ${item.explanation ? `<div class="ac-row"><span class="ac-badge badge-exp">해설</span><span class="ac-text">${applyTextFormatting(item.explanation)}</span></div>` : ''}
+                    </div>
+                `;
+
+                grid.appendChild(card);
+
+                if (container.scrollHeight > container.clientHeight) {
+                    grid.removeChild(card);
+
+                    ansPageNum++;
+                    currentSheet = createPage(ansPageNum, currentMeta);
+                    currentSheet.classList.add('answer-sheet');
+                    
+                    addMiniHeader(currentSheet, currentMeta);
+                    addMiniLogo(currentSheet, currentMeta);
+
+                    container = currentSheet.querySelector('.sheet-content');
+                    previewDeck.appendChild(currentSheet);
+
+                    grid = document.createElement('div');
+                    grid.className = 'answer-grid';
+                    grid.style.marginTop = '20px'; 
+                    container.appendChild(grid);
+                    grid.appendChild(card);
+                }
+            });
+        }
+
+        function startPrint() {
+            // 1. 기존 브라우저 제목 저장
+            const originalTitle = document.title;
+
+            // 2. 화면(Preview)에 그려진 제목 요소들을 직접 찾음
+            const subTitleEl = document.querySelector('.header-sub-title');
+            const mainTitleEl = document.querySelector('.header-main-title');
+
+            // 3. 요소가 있으면 텍스트를 가져오고, 없으면 빈 값/기본값 처리
+            const sub = subTitleEl ? subTitleEl.innerText.trim() : '';
+            const main = mainTitleEl ? mainTitleEl.innerText.trim() : 'Untitled';
+            
+            // 4. 파일명 조합 [소제목] 대제목
+            let fileName = sub ? `${sub} - ${main}` : main;
+
+            // 5. 파일명에 쓸 수 없는 특수문자 제거 (\ / : * ? " < > |)
+            fileName = fileName.replace(/[\\/:*?"<>|]/g, '_');
+
+            // 6. 브라우저 제목을 변경하여 Adobe PDF 파일명 강제 지정
+            document.title = fileName;
+
+            // 7. 인쇄 창 호출
+            window.print();
+
+            // 8. 인쇄 창이 뜨고 난 뒤 제목 복구
+            setTimeout(() => {
+                document.title = originalTitle;
+            }, 150);
+        }
+
+        
+    </script>
+</body>
+</html>
